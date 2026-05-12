@@ -1,0 +1,66 @@
+---
+description: Generate Conventional Commit messages from diffs
+globs: ["**/*"]
+alwaysApply: false
+---
+
+# Commit Message Rule
+
+When generating commit messages, follow Conventional Commits strictly.
+
+## Format
+
+```
+<type>(<scope>): <imperative subject ≤72 chars, no trailing period>
+
+<body — explain WHY, wrapped ~72 chars — only if non-obvious>
+
+<footer — BREAKING CHANGE: ... or Closes #N — only if applicable>
+```
+
+## Types
+
+`feat` `fix` `refactor` `perf` `docs` `test` `build` `ci` `chore` `revert`
+
+## Subject rules
+
+- Imperative mood: "add", "fix", "remove" — not "added", "fixes", "adding"
+- Lowercase, no trailing period
+- ≤50 chars preferred, 72 hard ceiling
+- Subject alone should make the change clear
+
+## Body rules
+
+Include a body when:
+- The *why* isn't obvious from the diff
+- The change has non-obvious tradeoffs
+- The change is breaking
+- The change closes a tracked issue
+
+Skip the body if it just restates the subject.
+
+## Examples
+
+```
+feat(auth): support OAuth2 device code flow
+
+Adds the device authorization grant for CLI and IoT clients that
+can't run a local HTTP server to receive the redirect.
+
+Closes #312
+```
+
+```
+fix(pricing): apply SUMMER25 discount at 25%, not 5%
+```
+
+```
+refactor(orders): extract pagination into shared helper
+```
+
+## Anti-patterns to avoid
+
+- `chore: updates` — too vague
+- `wip` / `temp` / `fixes` — meaningless
+- Mixed-concern commits — split them
+- Restating the diff in the body — explain motivation, not mechanics

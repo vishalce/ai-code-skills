@@ -1,0 +1,60 @@
+---
+description: Test-writing conventions — framework matching, AAA structure, behavior-named tests
+globs: ["**/*.test.*", "**/*.spec.*", "**/test_*.py", "**/*_test.go", "**/tests/**"]
+alwaysApply: false
+---
+
+# Test Writing Rule
+
+## Match the existing framework
+
+Find existing tests in the project and match their framework, structure, and naming. Don't introduce Vitest into a Jest codebase, or RSpec into a Minitest project, because of personal preference.
+
+## Test structure: Arrange / Act / Assert
+
+```ts
+test('rejects orders below minimum amount', () => {
+  // Arrange
+  const order = buildOrder({ amount: 50 });
+  
+  // Act
+  const result = validateOrder(order, { minimum: 100 });
+  
+  // Assert
+  expect(result.ok).toBe(false);
+  expect(result.reason).toBe('BELOW_MINIMUM');
+});
+```
+
+## Test names
+
+Name tests by behavior, not by function name.
+
+- ✗ `test('validateOrder')` — what about it?
+- ✗ `test('returns false')` — for what input?
+- ✓ `test('rejects orders below minimum amount')`
+
+## What to cover, in priority order
+
+1. Happy path (one test)
+2. Each explicit error branch
+3. Boundary values (0, 1, max, max+1, empty, null/undefined)
+4. The bug being fixed — write a failing test that locks in the corrected behavior
+
+## Don't over-mock
+
+- Never mock the function under test
+- Prefer fakes (in-memory implementations) over mocks (call-recorders) when faking dependencies
+- If a test passes against broken code, the test is broken
+- Integration tests should hit real dependencies (test DB, local queue) where feasible
+
+## When fixing bugs
+
+Write the failing test FIRST. Confirm it fails for the right reason. Then write the fix.
+
+## Don't test
+
+- Trivial getters/setters
+- Framework internals
+- Third-party library behavior (test the boundary, not the library)
+- Code that will be deleted next sprint
