@@ -1,0 +1,23 @@
+{
+  "name": "ai-code-skills",
+  "version": "0.1.0",
+  "description": "AI code skills — review, refactor, test/debug, docs, deps/security, git workflow — packaged as skills, slash commands, and subagents for Claude Code.",
+  "author": {
+    "name": "Vishal Joshi",
+    "url": "https://github.com/vishalce"
+  },
+  "homepage": "https://github.com/vishalce/ai-code-skills",
+  "license": "MIT",
+  "keywords": [
+    "claude-code",
+    "skills",
+    "code-review",
+    "refactoring",
+    "testing",
+    "documentation",
+    "security",
+    "git"
+  ],
+  "commands": "./claude-code/commands",
+  "agents": "./claude-code/agents"
+}
