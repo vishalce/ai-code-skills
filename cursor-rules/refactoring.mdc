@@ -1,0 +1,38 @@
+---
+description: Behavior-preserving refactoring patterns — extract, rename, dedupe with discipline
+globs: ["**/*"]
+alwaysApply: false
+---
+
+# Refactoring Rule
+
+Refactoring is changing structure without changing behavior. The "without changing behavior" half is the part that gets violated most. Treat it as a hard constraint.
+
+## Before touching code
+
+1. Identify the test surface. No tests covering this code? Say so. Offer to write characterization tests first for non-trivial logic.
+2. State the goal in one sentence. "Extract parsing logic from handleRequest into a pure function." If you can't write the sentence, you don't know what you're refactoring.
+3. List the mechanical changes you'll make: rename, extract, inline, move.
+4. Flag anything that *might* change behavior — evaluation order, error types thrown, log output, perf characteristics.
+
+## Output a plan first
+
+```
+## Plan
+- [ ] Extract X from Y into new file Z
+- [ ] Rename `foo` → `parseFoo` to reflect what it returns
+
+## Behavior-preserving? Yes, with one note:
+- Log line moves from `handleRequest` to `parseFoo`. Output identical, but log-search filters on function name need updating.
+```
+
+## Hard rules
+
+- **Never mix refactor + feature in one pass.** If asked to do both, split: refactor first (verify), then add feature.
+- **No over-abstraction.** Extracting a single-call-site function "in case we need it later" makes code harder to read. Wait for the second caller.
+- **No taste-driven renames.** `getUserData` → `fetchUserData` is taste, not improvement. Only rename if the name is actively misleading.
+- **Flag semantic shifts even when they look innocuous.** `forEach` → `for...of` changes how `await` and early-return behave.
+
+## DRY is a heuristic, not a law
+
+Two pieces of code that look the same but represent different concepts should stay separate. Collapse duplication only when it's genuinely one concept that's been copy-pasted.
