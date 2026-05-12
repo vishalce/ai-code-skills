@@ -1,0 +1,14 @@
+{
+  "name": "vishalce",
+  "owner": {
+    "name": "vishalce",
+    "url": "https://github.com/vishalce"
+  },
+  "plugins": [
+    {
+      "name": "ai-code-skills",
+      "source": ".",
+      "description": "AI code skills — review, refactor, test/debug, docs, deps/security, git workflow — packaged as skills, slash commands, and subagents for Claude Code."
+    }
+  ]
+}
