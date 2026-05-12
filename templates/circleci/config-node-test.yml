@@ -1,0 +1,49 @@
+# .circleci/config.yml
+# Purpose: run Node.js tests on every push, with cache + parallelism.
+# Runtime: CircleCI cloud, cimg/node Docker executor.
+# Required: none for the test job. Add contexts as needed for deploy jobs.
+# verified-on: 2026-05-12
+
+version: 2.1
+
+orbs:
+  # CHECK: pin to current exact version. Never use floating @4 or @volatile.
+  node: circleci/node@5.2.0
+
+jobs:
+  test:
+    docker:
+      # CHECK: confirm Node version. cimg images have many tools preinstalled — verify your build still works on a vanilla image if you switch.
+      - image: cimg/node:20.10
+    # Resource class: right-size deliberately. Default is `medium`. Don't upsize without evidence.
+    resource_class: medium
+    # Run 4 parallel containers; split tests by timing.
+    parallelism: 4
+
+    steps:
+      - checkout
+
+      - node/install-packages:
+          # node/install-packages handles cache restore + npm ci + cache save.
+          # Cache key includes the lockfile checksum automatically.
+          pkg-manager: npm
+
+      - run:
+          name: Run tests (sharded by timing)
+          command: |
+            set -euo pipefail
+            # CHECK: replace 'test/**/*.test.js' with your test glob.
+            TESTFILES=$(circleci tests glob "test/**/*.test.js" | circleci tests split --split-by=timings)
+            npx jest $TESTFILES --ci --reporters=default --reporters=jest-junit
+
+      - store_test_results:
+          # CHECK: confirm path to jest-junit XML. Default is junit.xml at repo root.
+          path: junit.xml
+
+workflows:
+  test:
+    jobs:
+      - test:
+          filters:
+            branches:
+              only: /.*/

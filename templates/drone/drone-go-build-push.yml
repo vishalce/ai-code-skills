@@ -1,0 +1,67 @@
+# .drone.yml
+# Purpose: build a Go binary, run tests, build + push a container image to a registry on tag.
+# Runtime: Drone Docker runner.
+# Required secrets (Drone repo settings):
+#   - registry_username
+#   - registry_token
+# verified-on: 2026-05-12
+
+kind: pipeline
+type: docker
+name: build-test
+
+trigger:
+  event:
+    - push
+    - pull_request
+    - tag
+
+steps:
+  - name: test
+    # CHECK: pin to the digest of the golang version you've validated. Get with:
+    #   docker pull golang:1.22.3-alpine && docker images --no-trunc --format '{{.Digest}}' golang:1.22.3-alpine
+    image: golang:1.22.3-alpine@sha256:CHECK
+    commands:
+      - set -euo pipefail
+      - go version
+      - go test ./...
+
+  - name: build
+    image: golang:1.22.3-alpine@sha256:CHECK
+    commands:
+      - set -euo pipefail
+      - CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o ./bin/app ./cmd/app
+    depends_on:
+      - test
+
+---
+kind: pipeline
+type: docker
+name: publish
+
+trigger:
+  event:
+    - tag
+
+depends_on:
+  - build-test
+
+steps:
+  - name: publish
+    # CHECK: 'plugins/docker' tag pinned below — verify against current digest at https://hub.docker.com/r/plugins/docker
+    image: plugins/docker:20.18.0
+    settings:
+      # CHECK: replace with your registry hostname (or omit for docker.io)
+      registry: registry.example.com
+      # CHECK: replace with your image path
+      repo: registry.example.com/team/app
+      tags:
+        - ${DRONE_TAG}
+        - ${DRONE_COMMIT_SHA:0:12}
+      username:
+        from_secret: registry_username
+      password:
+        from_secret: registry_token
+      dockerfile: Dockerfile
+      # Reproducible builds: don't auto-tag with `latest`
+      auto_tag: false

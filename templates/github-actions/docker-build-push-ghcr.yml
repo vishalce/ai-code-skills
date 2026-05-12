@@ -1,0 +1,60 @@
+# .github/workflows/docker-build-push.yml
+# Purpose: build a container image and push to GHCR on push to main + on tag.
+# Runtime: GitHub-hosted ubuntu-latest. Buildx with GHA cache.
+# Required secrets: none (uses GITHUB_TOKEN with packages:write).
+# verified-on: 2026-05-12
+
+name: docker-build-push
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: false  # never cancel a tag build
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      # CHECK: re-pin actions/checkout SHA
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      # CHECK: re-pin docker/setup-buildx-action SHA
+      - uses: docker/setup-buildx-action@CHECK  # v3.x.x
+
+      # CHECK: re-pin docker/login-action SHA
+      - uses: docker/login-action@CHECK  # v3.x.x
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # CHECK: re-pin docker/metadata-action SHA
+      - id: meta
+        uses: docker/metadata-action@CHECK  # v5.x.x
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=tag
+            type=sha,format=short
+
+      # CHECK: re-pin docker/build-push-action SHA
+      - uses: docker/build-push-action@CHECK  # v5.x.x
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          # CHECK: if your Dockerfile is not at repo root, set `file:` here.

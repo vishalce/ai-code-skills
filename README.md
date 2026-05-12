@@ -1,6 +1,6 @@
 # ai-code-skills
 
-A curated collection of **AI Skills, slash commands, and editor rules** that help developers manage their code smoothly — across code review, refactoring, testing, documentation, dependency hygiene, and git workflows.
+A curated collection of **AI Skills, slash commands, and editor rules** that help developers manage their code smoothly — across code review, refactoring, testing, documentation, dependency hygiene, git workflows, and CI/CD pipelines.
 
 Works with **Claude (Skills + Claude Code)**, **Cursor**, and **Windsurf**. Pick the format your tooling supports — the underlying instructions are the same.
 
@@ -16,6 +16,24 @@ Works with **Claude (Skills + Claude Code)**, **Cursor**, and **Windsurf**. Pick
 | **Docs & changelogs** | Generates READMEs, JSDoc/TSDoc/docstrings, Keep-a-Changelog entries |
 | **Dependency & security audits** | Audits `package.json` / `requirements.txt` / `pyproject.toml`, flags CVEs, suggests upgrades |
 | **Git workflow** | Conventional commits, branch naming, interactive rebase plans, semantic merge prep |
+| **CI/CD pipeline authoring** | Drafts production-grade GitHub Actions / Jenkins / Drone / CircleCI / Argo CD configs with pinning, OIDC, least privilege baked in |
+| **CI/CD debug** | Hypothesis-first RCA on failing pipelines from log + config — root cause, not symptom |
+| **CI/CD review & audit** | Security audit of pipelines: supply chain, OIDC hygiene, secrets, permissions, Argo CD anti-patterns |
+| **CI/CD migrate** | Jenkins ↔ GHA, CircleCI → GHA, Drone → GHA with translation table + verification checklist |
+| **CI/CD optimize** | Cache strategy, parallelization, matrix tuning, runner sizing — ranked by likely time saved |
+| **GitOps with Argo CD** | App-of-apps vs ApplicationSet, sync waves, progressive rollouts, drift detection, secret management |
+
+---
+
+## Supported CI/CD platforms
+
+| Platform | Authoring | Debug | Audit | Migrate from | Templates |
+|---|:---:|:---:|:---:|:---:|:---:|
+| **GitHub Actions** | ✓ | ✓ | ✓ | (target) | ✓ |
+| **Jenkins** | ✓ | ✓ | ✓ | ✓ | ✓ |
+| **Drone CI** | ✓ | ✓ | ✓ | ✓ | ✓ |
+| **CircleCI** | ✓ | ✓ | ✓ | ✓ | ✓ |
+| **Argo CD (GitOps)** | ✓ | ✓ | ✓ | — | ✓ |
 
 ---
 
@@ -29,12 +47,29 @@ ai-code-skills/
 │   ├── test-debug/
 │   ├── docs-changelog/
 │   ├── deps-security/
-│   └── git-workflow/
+│   ├── git-workflow/
+│   ├── cicd-config-author/      # Pipeline authoring (5 platforms)
+│   ├── cicd-debug/              # Failure RCA
+│   ├── cicd-review-audit/       # Pipeline security audit
+│   ├── cicd-migrate/            # Cross-platform translation
+│   ├── cicd-optimize/           # Speed + cost
+│   └── gitops-argocd/           # Argo CD patterns
 ├── claude-code/
-│   ├── commands/                # Claude Code slash commands (/review, /commit, etc.)
-│   └── agents/                  # Claude Code subagents (specialized roles)
+│   ├── commands/                # Slash commands (/review, /commit, /pipeline-review, ...)
+│   └── agents/                  # Subagents (code-reviewer, cicd-reviewer, ...)
 ├── cursor-rules/                # .mdc rule files for Cursor
 ├── windsurf-rules/              # .windsurfrules for Windsurf
+├── templates/                   # Battle-tested pipeline starters per platform
+│   ├── github-actions/
+│   ├── jenkins/
+│   ├── drone/
+│   ├── circleci/
+│   └── argocd/
+├── scripts/                     # Validators + linters
+│   ├── validate_skills.py       # Validates SKILL.md frontmatter
+│   ├── lint_pipeline.py         # Structural hygiene check across platforms
+│   ├── audit_pipeline.py        # Security audit (companion to cicd-review-audit)
+│   └── migrate_jenkins_to_gha.py # Jenkinsfile → GHA scaffolder (not a transparent translator)
 └── .github/workflows/           # Lint + validate skill manifests on PR
 ```
 
