@@ -1,0 +1,54 @@
+# .github/workflows/release.yml
+# Purpose: on tag push, build artifacts and deploy to AWS via OIDC.
+# Runtime: GitHub-hosted ubuntu-latest.
+# Required: an IAM role with a trust policy permitting this repo+ref to assume it.
+#   See: https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_create_for-idp_oidc.html
+# Required secrets: none (OIDC, no static AWS keys).
+# verified-on: 2026-05-12
+
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+  id-token: write  # required for OIDC
+
+concurrency:
+  group: release  # one release at a time
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production  # CHECK: create this environment in repo settings; add required reviewers if you want manual approval
+
+    steps:
+      # CHECK: re-pin actions/checkout SHA
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      # CHECK: re-pin aws-actions/configure-aws-credentials SHA
+      - name: Configure AWS via OIDC
+        uses: aws-actions/configure-aws-credentials@CHECK  # v4.x.x
+        with:
+          # CHECK: replace with your role ARN
+          role-to-assume: arn:aws:iam::123456789012:role/gha-release-deploy
+          # CHECK: replace with your region
+          aws-region: us-east-1
+          # Optional: shorter session for least-privilege blast radius
+          role-duration-seconds: 900
+
+      - name: Sanity-check identity
+        run: |
+          set -euo pipefail
+          aws sts get-caller-identity
+
+      # CHECK: replace with your actual deploy commands.
+      # Examples: aws s3 sync, aws ecs update-service, aws lambda update-function-code.
+      - name: Deploy
+        run: |
+          set -euo pipefail
+          echo "deploy step — replace this with the real deploy command"

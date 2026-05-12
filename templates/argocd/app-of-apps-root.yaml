@@ -1,0 +1,39 @@
+# bootstrap/root.yaml
+# Purpose: App-of-apps root — one Application that points at a directory of child Application manifests.
+# Best for: cluster bootstrap. Past ~20 apps, prefer ApplicationSet instead.
+# Required: argocd namespace exists; the root user has applied this manifest by hand once.
+# verified-on: 2026-05-12
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  # CHECK: 'default' permits any source/destination. For prod, create a restrictive 'bootstrap' AppProject
+  # that only allows the infra-config repo and the argocd + kube-system + cert-manager namespaces.
+  project: default
+
+  source:
+    # CHECK: replace with your infra/config repo URL
+    repoURL: https://github.com/example/infra-config.git
+    # CHECK: pin to commit SHA. NEVER use HEAD or a branch for the root in production.
+    targetRevision: a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0
+    # Directory containing child Application manifests.
+    path: argocd/
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+
+  syncPolicy:
+    # Manual sync until you trust this. Bootstrap-time prune+selfHeal can delete cluster-essential resources.
+    # Once the cluster is reconciled cleanly once, enable automated.
+    # automated:
+    #   prune: false
+    #   selfHeal: false
+
+    syncOptions:
+      - ApplyOutOfSyncOnly=true

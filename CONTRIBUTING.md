@@ -88,6 +88,45 @@ alwaysApply: false                # true = always in context, false = glob-match
 
 Windsurf reads a single `.windsurfrules` file. Add your section to `windsurf-rules/windsurfrules-combined.md` with a clear `## Section` header, or create a standalone variant in the same folder.
 
+## CI/CD content — the quality bar
+
+CI/CD content (skills, commands, rules, templates) carries higher risk than the rest of the repo: a broken pipeline example doesn't just confuse the reader, it burns trust and can land in production.
+
+**Non-negotiables for CI/CD additions:**
+
+- **Templates must be correct.** Broken examples are worse than no examples. If you can't verify the template end-to-end on the platform it targets, don't add it — or mark every uncertain value with `# CHECK:` and call it explicitly a "scaffold".
+- **Header block required** on every pipeline template:
+  ```
+  # Purpose: <one line — what this pipeline does>
+  # Runtime: <runner, image, language version assumptions>
+  # Required secrets: <names of secrets that must exist>
+  # verified-on: YYYY-MM-DD
+  ```
+- **`# CHECK:` marker** for anything you're not 100% sure about — image digests, credential names, exact SHAs, deploy targets. A future reader will trust a `# CHECK:` marker; they won't trust a confidently-wrong default value.
+- **Security defaults are non-negotiable.** Every template applies: SHA-pinning of third-party actions/orbs/plugins, least-privilege permissions, OIDC over static creds, no secrets in workflow-level `env:`, encrypted-only secrets for Argo CD. See `cursor-rules/cicd-security.mdc` for the full list.
+- **Skill descriptions must list trigger phrases** specifically: "Use whenever the user says 'X', 'Y', 'Z'..." with concrete examples. The CI/CD skills tend to under-trigger if descriptions are abstract.
+- **Cross-format consistency.** A new CI/CD concept added to a skill should be mirrored into the matching command (`claude-code/commands/`), subagent (`claude-code/agents/`), cursor rule (`cursor-rules/cicd-*.mdc`), and Windsurf section (`windsurf-rules/windsurfrules-combined.md` under `## CI/CD Pipelines`).
+
+**Specific things that get rejected:**
+
+- Pipeline templates with floating action references (no SHA pin) — even on first-party `actions/*`, prefer SHA + version comment for templates other people will copy.
+- Examples that reproduce official-docs verbatim — those are pedagogical, not production-ready (often omit `permissions:`, pinning, timeouts).
+- "Best practices" sections in skills without a named failure mode — if you can't say what goes wrong when the practice is violated, it's not a rule worth writing.
+- Argo CD `Application` examples with `automated.prune: true` + `selfHeal: true` and no comment about the staged-rollout caveat. Day-one auto-prune is a silent foot-cannon.
+- Jenkinsfile examples mixing declarative and scripted syntax in one `pipeline {}` block. Pick one.
+
+**Verifying your CI/CD additions:**
+
+```bash
+python3 scripts/validate_skills.py          # frontmatter + body checks (all skills)
+python3 scripts/lint_pipeline.py templates/ # structural hygiene on pipeline templates
+python3 scripts/audit_pipeline.py templates/ # security audit (templates will surface intentional placeholders)
+```
+
+The audit script will surface findings on templates because templates have intentional placeholders (`spec.project: default`, `# CHECK:` markers). That's expected. What's *not* expected: findings on something you didn't mean to include.
+
+---
+
 ## Style guide
 
 - **Direct, specific, kind.** Same tone the skills themselves recommend.

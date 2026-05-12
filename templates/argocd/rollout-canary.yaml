@@ -1,0 +1,71 @@
+# apps/my-app/base/rollout.yaml
+# Purpose: Argo Rollouts canary — replaces a standard Deployment with traffic-shifted, paused stages.
+# Runtime: requires the Argo Rollouts controller installed in-cluster.
+# Required: an AnalysisTemplate if you want metric-gated promotion (not included here — see CHECK below).
+# verified-on: 2026-05-12
+
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: my-app
+  namespace: my-app
+spec:
+  replicas: 5
+  revisionHistoryLimit: 3
+
+  selector:
+    matchLabels:
+      app: my-app
+
+  template:
+    metadata:
+      labels:
+        app: my-app
+    spec:
+      containers:
+        - name: my-app
+          # CHECK: replace with your image. Pin to digest in prod.
+          image: ghcr.io/example/my-app@sha256:CHECK
+          ports:
+            - containerPort: 8080
+              name: http
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+
+  strategy:
+    canary:
+      # Pure manual-pause canary. For metric-gated promotion, add an AnalysisTemplate
+      # and reference it from a `setCanaryScale` + `analysis:` step.
+      # CHECK: tune setWeight values and pause durations for your traffic patterns.
+      steps:
+        - setWeight: 20
+        - pause:
+            duration: 5m
+        - setWeight: 50
+        - pause:
+            duration: 10m
+        - setWeight: 100
+      # CHECK: if you have a Service Mesh (Istio, Linkerd, SMI) or an ingress that supports
+      # traffic splitting (NGINX, ALB, Traefik), add a `trafficRouting:` block here so the
+      # weights actually move traffic. Without it, weights only control pod replica ratios,
+      # which is a coarser approximation of "20% of traffic".
+      # trafficRouting:
+      #   nginx:
+      #     stableIngress: my-app-stable

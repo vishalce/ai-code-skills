@@ -1,0 +1,77 @@
+// Jenkinsfile
+// Purpose: build + test a Node.js project on PRs and main.
+// Runtime: Jenkins agent labeled 'linux-node20' with Node 20 preinstalled.
+// Required secrets: none. (Jenkins term: "credentials" — none required for this pipeline.)
+// verified-on: 2026-05-12
+
+pipeline {
+    // CHECK: replace 'linux-node20' with your actual agent label.
+    // Do NOT use `agent any` on shared instances — that can schedule onto the controller.
+    agent { label 'linux-node20' }
+
+    options {
+        timeout(time: 20, unit: 'MINUTES')
+        disableConcurrentBuilds()
+        ansiColor('xterm')
+        buildDiscarder(logRotator(numToKeepStr: '30'))
+        timestamps()
+    }
+
+    environment {
+        CI = 'true'
+        // Pinned via the agent's preinstalled Node. If the agent uses nvm, switch versions explicitly here.
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Install') {
+            steps {
+                sh '''
+                    set -euo pipefail
+                    node --version
+                    npm --version
+                    npm ci
+                '''
+            }
+        }
+
+        stage('Lint') {
+            steps {
+                sh '''
+                    set -euo pipefail
+                    npm run lint
+                '''
+            }
+        }
+
+        stage('Test') {
+            steps {
+                sh '''
+                    set -euo pipefail
+                    npm test -- --reporters=default --reporters=jest-junit
+                '''
+            }
+            post {
+                always {
+                    // CHECK: confirm path to your JUnit XML. Default `jest-junit` writes to junit.xml at repo root.
+                    junit allowEmptyResults: false, testResults: 'junit.xml'
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
+        }
+        failure {
+            // CHECK: replace with your actual notification step (email, Slack, etc.)
+            echo "Build failed: ${env.BUILD_URL}"
+        }
+    }
+}

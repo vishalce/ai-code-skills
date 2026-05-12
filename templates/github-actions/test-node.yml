@@ -1,0 +1,44 @@
+# .github/workflows/test.yml
+# Purpose: run unit tests on PRs and pushes to main for a Node.js project.
+# Runtime: GitHub-hosted ubuntu-latest, Node 20.x.
+# Required secrets: none.
+# verified-on: 2026-05-12
+
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-${{ github.ref }}
+  # Cancel in-flight PR runs when a new commit is pushed; never cancel main.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # CHECK: re-pin to current actions/checkout SHA before merging
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      # CHECK: re-pin to current actions/setup-node SHA before merging
+      - uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install deps
+        run: |
+          set -euo pipefail
+          npm ci
+
+      - name: Run tests
+        run: |
+          set -euo pipefail
+          npm test

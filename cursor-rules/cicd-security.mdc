@@ -1,0 +1,62 @@
+---
+description: CI/CD security defaults — non-negotiables for pinning, permissions, OIDC, secrets, supply chain. Applies when editing pipeline configs.
+globs: [".github/workflows/**/*.yml", ".github/workflows/**/*.yaml", "**/Jenkinsfile", "**/Jenkinsfile.*", ".drone.yml", ".drone.yaml", ".circleci/config.yml", ".circleci/config.yaml", "argocd/**/*.yaml", "argocd/**/*.yml", "**/Application.yaml", "**/ApplicationSet.yaml"]
+alwaysApply: false
+---
+
+# CI/CD Security Defaults
+
+## Non-negotiables
+
+1. **No floating refs on third-party dependencies.**
+   - GitHub Actions: third-party actions pinned to commit SHA + version comment.
+     ```yaml
+     uses: tj-actions/changed-files@<sha>  # v44.5.0
+     ```
+   - CircleCI orbs: exact version (`circleci/aws-cli@4.1.3`), not `@4`.
+   - Jenkins plugins/shared libs: version-pinned (`@Library('lib@v1.2.3')`).
+   - Drone plugin images: pinned to digest (`plugins/docker@sha256:...`), not `:latest`.
+   - Argo CD `targetRevision`: commit SHA or signed tag, never `HEAD` or a branch.
+
+2. **Least privilege.**
+   - GHA: `permissions: contents: read` at workflow root; expand per-job. Never `permissions: write-all`. Never omit `permissions:` (inherits repo default — often write-everything).
+   - Argo CD: explicit `spec.project`; don't rely on the implicit `default` project for production.
+   - Jenkins: `agent { label '...' }`, not `agent any` on shared instances.
+
+3. **OIDC over static credentials.**
+   - AWS / GCP / Azure / Vault deploys MUST use OIDC federation (`aws-actions/configure-aws-credentials` with `role-to-assume`, `google-github-actions/auth` with WIF, `azure/login` with federated creds).
+   - Long-lived `AWS_ACCESS_KEY_ID` as a secret is a finding — not a default.
+
+4. **Secret handling.**
+   - No `echo $SECRET`.
+   - No interpolation into commands that get logged: `curl -d "token=$SECRET" $URL` is a leak vector if `set -x` is on or the URL gets logged.
+   - No secrets at workflow-level `env:` (gets logged in some debug modes). Scope to the job/step.
+   - Argo CD: NEVER plain `Secret` manifests in Git. Use Sealed Secrets / External Secrets Operator / SOPS.
+
+5. **`pull_request_target` discipline (GitHub Actions).**
+   - `pull_request_target` runs with the base repo's secrets + write token against the fork's PR ref.
+   - Safe: read-only PR metadata operations (labels, comments).
+   - Unsafe: `actions/checkout` of the PR ref + executing fork code (npm install, build, scripts). This is the canonical "fork PR pwns the repo" pattern.
+
+6. **Argo CD rollout safety.**
+   - `syncPolicy.automated.prune: true` + `selfHeal: true` on a brand-new production Application is a critical risk. Default to manual sync on first deploy; enable auto-sync after one clean reconcile.
+
+7. **Shell discipline.**
+   - Every shell step starts with `set -euo pipefail`.
+   - No `curl ... | sh` from URLs you don't control. Even "trusted" installers (`get.docker.com`) should be pinned to a version where possible.
+   - No `eval` on user-controllable strings (PR titles, branch names, commit messages). Real RCE vector — branch names with backticks have escalated on public CIs.
+
+## When reviewing
+
+Flag findings in this severity order:
+
+- **Critical**: plaintext Argo secrets in Git; `pull_request_target` executing fork code; new-app auto-prune+selfHeal in prod; `permissions: write-all` on publishing workflows; unpinned third-party action with access to secrets.
+- **High**: static cloud keys where OIDC available; unpinned third-party actions in general; missing `permissions:` block; no `set -euo pipefail`; secrets in workflow-level `env:`.
+- **Medium**: missing timeouts; cache keys without lockfile hash; broad concurrency; `actions/*` on major tag where org policy is SHA-only.
+- **Note**: stylistic; do not pad the report.
+
+Group recurring findings ("7 unpinned actions: lines X, Y, Z") rather than listing each separately.
+
+## Tone
+
+Lead with what has an exploit path. Be specific about what's at risk. Don't list "best practices" without naming the failure mode they prevent.

@@ -1,0 +1,58 @@
+---
+description: CI/CD pipeline review checklist — structured findings for workflow/Jenkinsfile/drone/circleci/argo configs.
+globs: [".github/workflows/**/*.yml", ".github/workflows/**/*.yaml", "**/Jenkinsfile", "**/Jenkinsfile.*", ".drone.yml", ".drone.yaml", ".circleci/config.yml", ".circleci/config.yaml", "argocd/**/*.yaml", "argocd/**/*.yml", "**/Application.yaml", "**/ApplicationSet.yaml"]
+alwaysApply: false
+---
+
+# CI/CD Review Checklist
+
+When reviewing a pipeline config (workflow, Jenkinsfile, drone, circleci, argo), output:
+
+```
+## Summary
+[2–3 sentences: what the pipeline does, headline concern.]
+
+## Critical
+[file:line — what's wrong, exploit path / failure mode, exact fix. Omit heading if none.]
+
+## High
+[same shape]
+
+## Medium
+[hardening + hygiene]
+
+## Notes
+[informational, not findings]
+
+## Suggested patches
+[smallest diff for the top 2–3 items, when concrete]
+```
+
+## Review priorities, in order
+
+1. **Supply chain** — third-party actions / orbs / plugins / Helm charts pinned to SHA / immutable tag
+2. **Permissions & credentials** — least privilege; OIDC over static creds
+3. **Secret handling** — no echo, no logged interpolation, no plaintext Argo secrets
+4. **Triggers & gating** — `pull_request_target` audited; explicit Drone triggers
+5. **Operational safety** — timeouts, `set -euo pipefail`, concurrency
+6. **Platform footguns** — Jenkins declarative/scripted mixing; CircleCI floating orbs; Argo CD prune+selfHeal on day-one prod
+
+## Severity calibration
+
+- **Critical** — clear exploit path or production-destroying failure mode
+- **High** — credible security/supply-chain risk without immediate exploit
+- **Medium** — hardening, hygiene, defense-in-depth
+- **Note** — informational only; do not pad
+
+## Skip
+
+- "Best practices" without an exploit path or concrete failure mode
+- CVE numbers for the pipeline itself (those belong to its application dependencies)
+- Listing every unpinned action separately — group them
+- Stylistic / whitespace nits
+
+## Tone
+
+Direct, specific, kind. Lead with what has an exploit path. State the issue → why it matters → exact fix.
+
+Distinct from `code-review.mdc` (application code) and dependency audits (application packages — that's a different concern).

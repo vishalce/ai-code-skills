@@ -1,0 +1,60 @@
+---
+description: CI/CD pipeline authoring style — applies when editing GitHub Actions workflows, Jenkinsfiles, .drone.yml, CircleCI config, or Argo CD manifests.
+globs: [".github/workflows/**/*.yml", ".github/workflows/**/*.yaml", "**/Jenkinsfile", "**/Jenkinsfile.*", ".drone.yml", ".drone.yaml", ".circleci/config.yml", ".circleci/config.yaml", "argocd/**/*.yaml", "argocd/**/*.yml", "**/Application.yaml", "**/ApplicationSet.yaml"]
+alwaysApply: false
+---
+
+# CI/CD Authoring Rule
+
+## Header comment is required
+
+Every pipeline file opens with a comment block stating:
+
+```
+# Purpose: <one line — what this pipeline does>
+# Runtime: <runner, image, language version assumptions>
+# Required secrets: <names of secrets that must exist>
+# verified-on: YYYY-MM-DD
+```
+
+## Universal rules
+
+1. **Pin everything.** Third-party actions / orbs / plugins → commit SHA, not floating tag. Tool versions → exact patch. Container base images → digest in prod paths.
+2. **Least privilege.** `permissions: contents: read` at GHA workflow root; expand per-job. Jenkins agents by label, not `agent any`. Drone steps with explicit `image:`, never `:latest` in prod.
+3. **Secrets.** Never `echo $SECRET`. Never interpolate into commands that get logged. No workflow-level `env:` for secrets. Prefer OIDC over static creds.
+4. **Cache deps, not outputs.** Cache key must include the lockfile hash (`hashFiles('**/package-lock.json')`).
+5. **Fail fast.** Shell steps start with `set -euo pipefail`. Jobs and steps have explicit timeouts. Matrices use `fail-fast: true` by default.
+6. **Reproducibility.** No `latest` image tags in prod paths. No unpinned installs. Setup actions, not "tool happens to be on the runner" assumptions.
+
+## Output format when generating a pipeline
+
+Precede the YAML with:
+
+```
+## Summary
+[2–3 sentences: what triggers it, what it does, headline thing the user must wire up.]
+
+## Assumptions
+[Anything inferred: language version, secret names, deploy target.]
+
+## Before this works
+[Secrets to create, OIDC roles to provision, branch protection / environment configs.]
+```
+
+After the YAML, include a **Next steps** section for obvious follow-ups.
+
+## Marker convention
+
+When uncertain about a specific value (image digest, credential name, deploy target), use `# CHECK:` in the YAML rather than guessing a plausible value.
+
+## Platform-specific
+
+- **GHA**: pin third-party actions to SHA (`uses: org/action@<sha>  # vX.Y.Z`); explicit `permissions:`; `concurrency:` for branches that shouldn't double-run.
+- **Jenkins**: declarative `pipeline {}` by default; never mix scripted and declarative in one block; `options { timeout(...); disableConcurrentBuilds() }`.
+- **Drone**: explicit `trigger:` on every pipeline; pin images to digest; `from_secret:` for secrets (never `${SECRET}` in `commands:`).
+- **CircleCI**: pin orbs to exact version; right-size resource_class; OIDC orbs over static creds.
+- **Argo CD**: pin `targetRevision` to SHA or signed tag, never `HEAD` or a branch; explicit `spec.project`; manual sync on first deploy; encrypted secrets only (Sealed Secrets / External Secrets / SOPS).
+
+## Tone
+
+You're writing config the user will trust in production. Be specific about assumptions and what's still on them. Mark uncertainty `# CHECK:` rather than inventing a value.

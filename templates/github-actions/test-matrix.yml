@@ -1,0 +1,52 @@
+# .github/workflows/test-matrix.yml
+# Purpose: run unit tests across multiple Node + OS combinations.
+# Runtime: GitHub-hosted ubuntu-latest, macos-latest, windows-latest; Node 18.x, 20.x, 22.x.
+# Required secrets: none.
+# verified-on: 2026-05-12
+
+name: test-matrix
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-matrix-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+
+    strategy:
+      # fail-fast: true is the default; loosened here because a single-OS failure
+      # shouldn't cancel the other rows on a cross-platform test grid.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node: ['18.x', '20.x', '22.x']
+        # CHECK: trim this matrix if you don't actually support all combos —
+        # 9 jobs per push gets expensive fast on a busy repo.
+
+    steps:
+      # CHECK: re-pin actions/checkout SHA
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      # CHECK: re-pin actions/setup-node SHA
+      - uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
+        with:
+          node-version: ${{ matrix.node }}
+          cache: 'npm'
+
+      - name: Install deps
+        run: npm ci
+        shell: bash
+
+      - name: Run tests
+        run: npm test
+        shell: bash

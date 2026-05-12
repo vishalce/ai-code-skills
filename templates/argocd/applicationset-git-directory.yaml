@@ -1,0 +1,63 @@
+# argocd/applicationset-apps.yaml
+# Purpose: generate one Argo CD Application per directory under apps/, in a single environment.
+# Runtime: Argo CD controller with ApplicationSet support (built-in since 2.3+).
+# Required: a registered destination cluster.
+# verified-on: 2026-05-12
+
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: apps-prod
+  namespace: argocd
+spec:
+  # Recommended: enable goTemplate for clearer templating (the default text-template can mis-render in edge cases).
+  goTemplate: true
+
+  generators:
+    - git:
+        # CHECK: replace with your manifests repo URL
+        repoURL: https://github.com/example/infra-config.git
+        # CHECK: pin to a SHA or signed tag for prod. A branch works for dev only.
+        revision: a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0
+        directories:
+          - path: apps/*/overlays/prod
+          # exclude:
+          #   - path: apps/legacy-*/overlays/prod
+          #     exclude: true
+
+  template:
+    metadata:
+      # {{.path.basename}} on a directory path like apps/api/overlays/prod gives "prod".
+      # Use {{index .path.segments 1}} to get the app name (the segment after "apps/").
+      # CHECK: confirm this naming works for your path layout before applying.
+      name: '{{index .path.segments 1}}-prod'
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      # CHECK: switch to a restrictive AppProject for prod
+      project: default
+
+      source:
+        repoURL: https://github.com/example/infra-config.git
+        targetRevision: a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0
+        path: '{{.path.path}}'
+
+      destination:
+        server: https://kubernetes.default.svc
+        # Convention: namespace matches the app name. Adjust if your layout differs.
+        namespace: '{{index .path.segments 1}}'
+
+      syncPolicy:
+        # SAFE-ROLLOUT: leave `automated:` commented until you've watched the first sync reconcile per app.
+        # automated:
+        #   prune: false
+        #   selfHeal: false
+        syncOptions:
+          - CreateNamespace=true
+          - ApplyOutOfSyncOnly=true
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m

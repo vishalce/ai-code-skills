@@ -1,0 +1,72 @@
+# argocd/applications/my-app.yaml
+# Purpose: Argo CD Application — declare a workload + tell Argo where to find its manifests.
+# Runtime: Argo CD controller in the `argocd` namespace.
+# Required: a registered destination cluster (in-cluster or external) and a project that permits this source.
+# verified-on: 2026-05-12
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  # CHECK: name your Application. Must be unique within the argocd namespace.
+  name: my-app
+  namespace: argocd
+  # Recommended: finalizer ensures `kubectl delete app` cleans up the managed resources, not just the Application CR.
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  # CHECK: 'default' permits any source/destination — for production prefer a restrictive AppProject.
+  project: default
+
+  source:
+    # CHECK: replace with your manifests repo URL
+    repoURL: https://github.com/example/infra-config.git
+    # CHECK: pin to a commit SHA or signed tag. NEVER use 'HEAD' or a mutable branch in prod.
+    targetRevision: a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0
+    # CHECK: relative path within the repo to this app's manifests
+    path: apps/my-app/overlays/prod
+
+    # If you're using Kustomize or Helm, uncomment the matching block.
+    # kustomize:
+    #   commonAnnotations:
+    #     example.com/managed-by: argocd
+    # helm:
+    #   releaseName: my-app
+    #   valueFiles:
+    #     - values.yaml
+    #     - values-prod.yaml
+
+  destination:
+    # In-cluster destination. For external clusters, use `name:` referencing a registered cluster.
+    server: https://kubernetes.default.svc
+    # CHECK: target namespace — must exist or be created by this app (or a higher-wave one)
+    namespace: my-app
+
+  syncPolicy:
+    # SAFE-ROLLOUT STAGE 1: manual sync on first deploy.
+    # Apply this manifest, then sync from the UI / CLI once and watch reconcile.
+    # Once clean, uncomment `automated:` below for stage 2.
+    #
+    # automated:
+    #   prune: false      # Stage 2: keep this false until you trust the sync
+    #   selfHeal: false   # Stage 2: keep this false initially
+    # Stage 3 (after a clean cycle): set prune: true and selfHeal: true.
+
+    syncOptions:
+      - CreateNamespace=true  # Argo will create the destination namespace if missing
+      - ApplyOutOfSyncOnly=true
+      # CHECK: PrunePropagationPolicy=foreground — use if you need ordered prune (e.g., delete pods before services)
+
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+  # CHECK: ignoreDifferences should be NARROW. Don't ignore /spec — ignore the specific field a controller writes.
+  # Example: HPA writes replicas, so ignore /spec/replicas on Deployments managed by an HPA.
+  # ignoreDifferences:
+  #   - group: apps
+  #     kind: Deployment
+  #     jsonPointers:
+  #       - /spec/replicas
