@@ -117,6 +117,53 @@ Flag secrets in source. Flag injection surfaces (SQL string concat, `exec` with 
 
 ---
 
+## CI/CD Pipelines
+
+When authoring or reviewing pipeline configs (`.github/workflows/`, `Jenkinsfile`, `.drone.yml`, `.circleci/config.yml`, Argo CD `Application` / `ApplicationSet`):
+
+**Universal rules — non-negotiable:**
+
+1. **Pin everything.** Third-party actions / orbs / plugins → commit SHA. Tool versions → exact patch. Container base images → digest in prod.
+2. **Least privilege.** `permissions: contents: read` at GHA workflow root; expand per-job. Argo CD: explicit `spec.project`. Jenkins: `agent { label '...' }`, not `agent any`.
+3. **OIDC over static credentials** for cloud deploys (AWS / GCP / Azure). Long-lived `AWS_ACCESS_KEY_ID` as a secret is a finding.
+4. **Secrets.** No `echo $SECRET`. No interpolation into commands that get logged. No workflow-level `env:` for secrets. Argo CD: encrypted only (Sealed Secrets / External Secrets / SOPS), never plain.
+5. **`pull_request_target` discipline (GHA).** Never check out fork code AND execute it under a `pull_request_target` workflow. That's the canonical fork-PR-pwns-repo pattern.
+6. **Fail fast.** Shell steps start with `set -euo pipefail`. Explicit timeouts on jobs and steps. `fail-fast: true` on matrices by default.
+7. **Reproducibility.** No `latest` image tags in prod paths. No unpinned installs. Setup actions, not "tool happens to be on the runner" assumptions.
+8. **Header comment** on every config: purpose, runtime, required secrets, `verified-on: YYYY-MM-DD`.
+
+**When generating:** mark uncertain values (image digests, credential names, deploy targets) with `# CHECK:` rather than inventing a plausible-looking value.
+
+**When reviewing**, output findings in severity order:
+
+```
+## Critical
+[file:line — what's wrong, exploit path, exact fix.]
+
+## High
+[same shape]
+
+## Medium
+[hardening + hygiene]
+
+## Notes
+[informational only]
+```
+
+Severity:
+- **Critical** — clear exploit path or production-destroying failure (plaintext Argo secrets in Git; `pull_request_target` executing fork code; prune+selfHeal on unreconciled prod Argo app; unpinned third-party action with access to secrets)
+- **High** — credible risk without immediate exploit (static cloud keys where OIDC available; unpinned third-party actions; missing `permissions:`; no `set -euo pipefail`)
+- **Medium** — hardening (missing timeouts; cache keys without lockfile hash; broad concurrency)
+- **Note** — informational only; do not pad
+
+Group recurring findings ("7 unpinned actions: lines X, Y, Z"), not one per occurrence.
+
+For migrations between platforms, produce a translation table for *non-1:1 constructs*, the migrated config, and a verification checklist of secrets/OIDC/environments the user must create on the target side. Mark uncertain values `# CHECK:`. Flag shared libraries / custom plugins you couldn't fully translate.
+
+For pipeline failures: read the log from the top of the failing step, not the bottom. Form 2–3 hypotheses before proposing a fix. Don't suggest retries or longer timeouts unless the root cause is genuinely outside the user's control.
+
+---
+
 ## Git
 
 Dangerous operations require explicit confirmation:
